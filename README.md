@@ -46,11 +46,11 @@ The tool can be run from the command line with the following format:
 
 ### Subcommands
 
-| Subcommand | Description                             | Arguments                                                           |
-|------------|-----------------------------------------|---------------------------------------------------------------------|
-| `fifo_out` | Output to a FIFO file                   | `fifo_output` (positional) - The FIFO output file path              |
-| `http_out` | Output to an HTTP endpoint as JSON post | `uri_endpoint` (positional) - URI of the HTTP endpoint              |
-|            |                                         | `--format` Format for sending POST data [Json, Avro, Bson, MsgPack] |
+| Subcommand | Description                                                   | Arguments                                                           |
+|------------|---------------------------------------------------------------|---------------------------------------------------------------------|
+| `fifo_out` | Output to a FIFO file                                         | `fifo_output` (positional) - The FIFO output file path              |
+| `http_out` | Output to an HTTP endpoint (*not support HTTPS*) as JSON post | `uri_endpoint` (positional) - URI of the HTTP endpoint              |
+|            |                                                               | `--format` Format for sending POST data [Json, Avro, Bson, MsgPack] |
 
 #### MsgPack
 For `MessagePack` the definition of the struct (that you must to use to read the binary) is:
