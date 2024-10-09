@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "FfmpegInfo",
+  "fields": [
+    {"name": "out_file_index", "type": ["long", "null"], "default": null},
+    {"name": "out_stream_index", "type": ["long", "null"], "default": null},
+    {"name": "frame_number", "type": "long"},
+    {"name": "frame_quality", "type": "double"},
+    {"name": "packet_size_bytes", "type": "long"},
+    {"name": "stream_size_kbytes", "type": "long"},
+    {"name": "timestamp", "type": "double"},
+    {"name": "picture_type", "type": "string"},
+    {"name": "bitrate_kbps", "type": "double"},
+    {"name": "avg_bitrate_kbps", "type": "double"}
+  ]
+}
