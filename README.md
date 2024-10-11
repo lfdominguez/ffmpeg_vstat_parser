@@ -2,14 +2,14 @@
 
 ## Overview
 
-This project provides a utility to parse vstat FFmpeg format logs from a named pipe (FIFO) and send the parsed data to an external service. It leverages the Rust programming language to ensure high performance and reliability. By using this tool, users can efficiently manage and analyze FFmpeg log data in real-time for monitoring or further processing.
+This project provides a utility to parse vstats FFmpeg format logs from a named pipe (FIFO) and send the parsed data to an external service. It leverages the Rust programming language to ensure high performance and reliability. By using this tool, users can efficiently manage and analyze FFmpeg log data in real-time for monitoring or further processing.
 
-> The vstat file output can be generated on ffmpeg using the `--vstats_file <file>`
+> The vstats file output can be generated on ffmpeg using the `--vstats_file <file>`
 
 ## Features
 
-- **Efficient Parsing:** Parses vstat logs from FFmpeg using a specified FIFO input file.
-- **Version Handling:** Supports different versions of vstat log lines.
+- **Efficient Parsing:** Parses vstats logs from FFmpeg using a specified FIFO input file.
+- **Version Handling:** Supports different versions of vstats log lines.
 - **Extensible Commands:** Allows for different output types through subcommands.
 
 ## Build
@@ -41,7 +41,7 @@ The tool can be run from the command line with the following format:
 | Argument            | Short | Description                                         |
 |---------------------|-------|-----------------------------------------------------|
 | `--fifo`            | `-f`  | Input file FIFO to read from                        |
-| `--vstat-version`   |       | Version of vstat log lines                          |
+| `--vstat-version`   |       | Version of vstats log lines                          |
 | Subcommand          |       | Specifies the operation to be performed             |
 
 ### Subcommands
@@ -74,15 +74,15 @@ struct FfmpegInfo {
 
 1. **Basic Usage:**
 
-    Suppose you have an FFmpeg vstat log being written to a FIFO file at `/tmp/ffmpeg_fifo`, and you are using vstat version 1 log lines. You could run the utility as follows:
+    Suppose you have an FFmpeg vstats log being written to a FIFO file at `/tmp/ffmpeg_fifo`, and you are using vstats version 1 log lines. You could run the utility as follows:
 
     ```sh
     ./target/release/ffmpeg_vstat_parser --fifo /tmp/ffmpeg_fifo --vstat-version 1 fifo_out /tmp/output_fifo
     ```
 
-2. **Using a Different vstat Version:**
+2. **Using a Different vstats Version:**
 
-    If the vstat version of your log lines is 2, you can specify that accordingly:
+    If the vstats version of your log lines is 2, you can specify that accordingly:
 
     ```sh
     ./target/release/ffmpeg_vstat_parser --fifo /tmp/ffmpeg_fifo --vstat-version 2 fifo_out /tmp/output_fifo
@@ -90,7 +90,7 @@ struct FfmpegInfo {
 
 3. **Output to an HTTP Endpoint:**
 
-    To send the parsed vstat logs to an HTTP endpoint in JSON format:
+    To send the parsed vstats logs to an HTTP endpoint in JSON format:
 
     ```sh
     ./target/release/ffmpeg_vstat_parser --fifo /tmp/ffmpeg_fifo --vstat-version 1 http_out http://example.com/endpoint --format Json
