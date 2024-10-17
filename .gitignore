@@ -12,3 +12,6 @@ devenv.local.nix
 
 # Jetbrains
 .idea
+
+# cargo
+supply-chain/

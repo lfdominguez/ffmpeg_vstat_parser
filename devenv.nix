@@ -6,6 +6,9 @@
     git
     openssl.dev
     pkg-config
+    cargo-audit
+    cargo-vet
+    cargo-geiger
   ];
 
   # https://devenv.sh/languages/

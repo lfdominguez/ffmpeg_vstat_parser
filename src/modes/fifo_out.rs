@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use log::trace;
 use tokio::io::AsyncWriteExt;
 use tokio::net::unix::pipe;
-use crate::parser::FfmpegInfo;
+use crate::parser::LineInfo;
 
 pub struct FifoOut {
     fifo_sender: pipe::Sender
@@ -22,10 +22,10 @@ impl FifoOut {
 
 #[async_trait]
 impl crate::modes::ProcessLog for FifoOut {
-    async fn process_log(&mut self, ffmpeg_info: FfmpegInfo) -> anyhow::Result<()> {
+    async fn process_log(&mut self, line_info: LineInfo) -> anyhow::Result<()> {
         trace!("Sending data to fifo out method");
         
-        self.fifo_sender.write_all((format!("{}\n", ffmpeg_info.raw_line)).as_bytes()).await?;
+        self.fifo_sender.write_all((format!("{}\n", line_info.raw_line)).as_bytes()).await?;
         self.fifo_sender.flush().await?;
         
         Ok(())

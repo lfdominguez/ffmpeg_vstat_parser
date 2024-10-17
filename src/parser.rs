@@ -5,7 +5,20 @@ use anyhow::anyhow;
 use log::trace;
 use regex::Captures;
 use serde::Serialize;
-use crate::args::APP_ARGS;
+use crate::args::{ParserMode, APP_ARGS};
+
+#[derive(Serialize)]
+pub(crate) struct LineInfo {
+    #[serde(skip_serializing)]
+    pub raw_line: String,
+    
+    pub parse_info: Option<ParseInfo>
+}
+
+#[derive(Serialize)]
+pub(crate) enum ParseInfo {
+    Ffmpeg(Box<FfmpegInfo>)
+}
 
 #[derive(Serialize)]
 pub(crate) struct FfmpegInfo {
@@ -19,9 +32,6 @@ pub(crate) struct FfmpegInfo {
     pub picture_type: String,
     pub bitrate_kbps: f64,
     pub avg_bitrate_kbps: f64,
-
-    #[serde(skip_serializing)]
-    pub raw_line: String
 }
 
 // Vstat Version 1
@@ -31,10 +41,14 @@ pub(crate) struct FfmpegInfo {
 // out= OUT_FILE_INDEX st= OUT_FILE_STREAM_INDEX frame= FRAME_NUMBER q= FRAME_QUALITYf PSNR= PSNR f_size= FRAME_SIZE s_size= STREAM_SIZEkB time= TIMESTAMP br= BITRATEkbits/s avg_br= AVERAGE_BITRATEkbits/s
 
 static FFMPEG_VSTAT_REGEX: Lazy<regex::Regex> = Lazy::new(|| {
-    if APP_ARGS.vstat_version == 1 {
-        regex::Regex::new(r"frame=\s+(?<frame>\d+)\s+q=\s+(?<q>\d+\.\d+)\s+f_size=\s+(?<f_size>\d+)\s+s_size=\s+(?<s_size>\d+)kB\s+time=\s+(?<time>\d+\.\d+)\s+br=\s+(?<br>\d+\.\d+)kbits/s\s+avg_br=\s+(?<avg_br>\d+\.\d+)kbits/s\s+type=\s+(?<type>[a-zA-z]+)").unwrap()
-    } else {
-        regex::Regex::new(r"out=\s+(?<out>\d+)\s+st=\s+(?<st>\d+)\s+frame=\s+(?<frame>\d+)\s+q=\s+(?<q>\d+\.\d+)\s+f_size=\s+(?<f_size>\d+)\s+s_size=\s+(?<s_size>\d+)kB\s+time=\s+(?<time>\d+\.\d+)\s+br=\s+(?<br>\d+\.\d+)kbits/s\s+avg_br=\s+(?<avg_br>\d+\.\d+)kbits/s\s+type=\s+(?<type>[a-zA-z]+)").unwrap()
+    match APP_ARGS.parser_mode {
+        ParserMode::FfmpegVstatV1 =>
+            regex::Regex::new(r"frame=\s+(?<frame>\d+)\s+q=\s+(?<q>\d+\.\d+)\s+f_size=\s+(?<f_size>\d+)\s+s_size=\s+(?<s_size>\d+)kB\s+time=\s+(?<time>\d+\.\d+)\s+br=\s+(?<br>\d+\.\d+)kbits/s\s+avg_br=\s+(?<avg_br>\d+\.\d+)kbits/s\s+type=\s+(?<type>[a-zA-z]+)").unwrap(),
+        
+        ParserMode::FfmpegVstatV2 =>
+            regex::Regex::new(r"out=\s+(?<out>\d+)\s+st=\s+(?<st>\d+)\s+frame=\s+(?<frame>\d+)\s+q=\s+(?<q>\d+\.\d+)\s+f_size=\s+(?<f_size>\d+)\s+s_size=\s+(?<s_size>\d+)kB\s+time=\s+(?<time>\d+\.\d+)\s+br=\s+(?<br>\d+\.\d+)kbits/s\s+avg_br=\s+(?<avg_br>\d+\.\d+)kbits/s\s+type=\s+(?<type>[a-zA-z]+)").unwrap(),
+        
+        _ => regex::Regex::new("").unwrap()
     }
 });
 
@@ -42,16 +56,16 @@ pub(crate) fn parse_ffmpeg_vstat(log_line: &String) -> anyhow::Result<FfmpegInfo
     trace!("Processing line: {log_line}");
 
     if let Some(vstats_regex_groups) = FFMPEG_VSTAT_REGEX.captures(log_line) {
-        let out_file_index = if APP_ARGS.vstat_version == 1 {
-            None
-        } else {
-            Some(parse_generic_field("out", &vstats_regex_groups)?)
+        let out_file_index = match APP_ARGS.parser_mode {
+            ParserMode::FfmpegVstatV1 => None,
+            ParserMode::FfmpegVstatV2 => Some(parse_generic_field("out", &vstats_regex_groups)?),
+            _ => anyhow::bail!("Incorrect parser mode for ffmpeg vstat")
         };
 
-        let out_stream_index = if APP_ARGS.vstat_version == 1 {
-            None
-        } else {
-            Some(parse_generic_field("st", &vstats_regex_groups)?)
+        let out_stream_index = match APP_ARGS.parser_mode {
+            ParserMode::FfmpegVstatV1 => None,
+            ParserMode::FfmpegVstatV2 => Some(parse_generic_field("st", &vstats_regex_groups)?),
+            _ => anyhow::bail!("Incorrect parser mode for ffmpeg vstat")
         };
 
         let frame_number = parse_generic_field("frame", &vstats_regex_groups)?;
@@ -73,11 +87,10 @@ pub(crate) fn parse_ffmpeg_vstat(log_line: &String) -> anyhow::Result<FfmpegInfo
             timestamp,
             picture_type,
             bitrate_kbps,
-            avg_bitrate_kbps,
-            raw_line: log_line.clone()
+            avg_bitrate_kbps
         })
     } else {
-        anyhow::bail!("cant parse ffmpeg vstat line")
+        anyhow::bail!("cant parse ffmpeg vstat line: {}", log_line)
     }
 }
 
