@@ -1,8 +1,9 @@
 use log::{debug, info, trace, warn};
-use crate::args::{OutputType, APP_ARGS};
+use crate::args::{OutputType, ParserMode, APP_ARGS};
 use tokio::net::unix::pipe;
 use tokio::sync::mpsc;
 use tokio::io::{AsyncReadExt};
+use crate::parser::{LineInfo, ParseInfo};
 
 mod args;
 mod modes;
@@ -12,7 +13,7 @@ mod parser;
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
 
-    info!("Reading from pipe file '{}' using version '{}'", APP_ARGS.fifo_file_in, APP_ARGS.vstat_version);
+    info!("Reading from pipe file '{}' using mode '{:?}'", APP_ARGS.fifo_file_in, APP_ARGS.parser_mode);
 
     let rx_test = pipe::OpenOptions::new()
         .read_write(true)
@@ -33,7 +34,7 @@ async fn main() -> anyhow::Result<()> {
                     if let Ok(processor) = processor_test {
                         Box::new(processor)
                     } else {
-                        panic!("Error creating processor: {}", processor_test.err().unwrap().to_string())
+                        panic!("Error creating processor: {}", processor_test.err().unwrap())
                     }
                 }
                 OutputType::HttpPost(http_args) => {
@@ -42,7 +43,7 @@ async fn main() -> anyhow::Result<()> {
                     if let Ok(processor) = processor_test {
                         Box::new(processor)
                     } else {
-                        panic!("Error creating processor: {}", processor_test.err().unwrap().to_string())
+                        panic!("Error creating processor: {}", processor_test.err().unwrap())
                     }
                 }
             };
@@ -62,14 +63,32 @@ async fn main() -> anyhow::Result<()> {
                                 if byte == b'\n' {
                                     let line = format!("{}{}", incomplete_line, String::from_utf8_lossy(&msg_bytes[start..i]));
 
-                                    let ffmpeg_vstat_info_test = parser::parse_ffmpeg_vstat(&line);
+                                    let parser_info_result = match APP_ARGS.parser_mode {
+                                        ParserMode::Raw => Ok(LineInfo {
+                                            raw_line: line,
+                                            parse_info: None
+                                        }),
 
-                                    if let Ok(ffmpeg_vstat_info) = ffmpeg_vstat_info_test {
-                                        if let Err(e) = log_processor.process_log(ffmpeg_vstat_info).await {
+                                        ParserMode::FfmpegVstatV1 | ParserMode::FfmpegVstatV2 => {
+                                            let ffmpeg_info_result = parser::parse_ffmpeg_vstat(&line);
+                                            
+                                            if let Ok(ffmpeg_info) = ffmpeg_info_result {
+                                                Ok(LineInfo {
+                                                    raw_line: line,
+                                                    parse_info: Some(ParseInfo::Ffmpeg(Box::new(ffmpeg_info)))
+                                                })
+                                            } else {
+                                                Err(format!("Fail parsing ffmpeg vstat line: {}", ffmpeg_info_result.err().unwrap()))
+                                            }
+                                        }
+                                    };
+
+                                    if let Ok(parser_info) = parser_info_result {
+                                        if let Err(e) = log_processor.process_log(parser_info).await {
                                             warn!("Error processing line: {}", e.to_string())
                                         }
                                     } else {
-                                        warn!("Not processing line: {}", ffmpeg_vstat_info_test.err().unwrap().to_string())
+                                        debug!("{}", parser_info_result.err().unwrap().to_string())
                                     }
                                     
                                     incomplete_line.clear();

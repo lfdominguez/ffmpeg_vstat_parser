@@ -1,15 +1,12 @@
-# Project Name: FFmpeg vStat Parser
+# Project Name: Multi Parser
 
 ## Overview
 
-This project provides a utility to parse vstats FFmpeg format logs from a named pipe (FIFO) and send the parsed data to an external service. It leverages the Rust programming language to ensure high performance and reliability. By using this tool, users can efficiently manage and analyze FFmpeg log data in real-time for monitoring or further processing.
-
-> The vstats file output can be generated on ffmpeg using the `--vstats_file <file>`
+This project provides a utility to parse multiple logs types from a named pipe (FIFO) and send the parsed data to an external service. It leverages the Rust programming language to ensure high performance and reliability. By using this tool, users can efficiently manage and analyze FFmpeg log data in real-time for monitoring or further processing.
 
 ## Features
 
-- **Efficient Parsing:** Parses vstats logs from FFmpeg using a specified FIFO input file.
-- **Version Handling:** Supports different versions of vstats log lines.
+- **Efficient Parsing:** Parses logs from a specified FIFO input file (you must take care how to send the data to the FIFO file).
 - **Extensible Commands:** Allows for different output types through subcommands.
 
 ## Build
@@ -33,24 +30,30 @@ cargo build --release
 The tool can be run from the command line with the following format:
 
 ```sh
-./target/release/ffmpeg_vstat_parser --fifo <input_fifo_file_path> --vstat-version <version_number> <subcommand>
+./target/release/ffmpeg_vstat_parser --fifo <input_fifo_file_path> --parser <parser_type> <subcommand>
 ```
 
 ### Supported Arguments
 
-| Argument            | Short | Description                                         |
-|---------------------|-------|-----------------------------------------------------|
-| `--fifo`            | `-f`  | Input file FIFO to read from                        |
-| `--vstat-version`   |       | Version of vstats log lines                          |
-| Subcommand          |       | Specifies the operation to be performed             |
+| Argument   | Short | Description                                                 |
+|------------|-------|-------------------------------------------------------------|
+| `--fifo`   | `-f`  | Input file FIFO to read from                                |
+| `--parser` |       | Define what kind of parser to use (see [Parsers](#Parsers)) |
+| Subcommand |       | Specifies the operation to be performed                     |
+
+### Parsers
+
+ * `Raw`: Don't parse any line, send a clone of input to the output
+ * `FfmpegVstatV1`: Parse ffmpeg vstat v1 information
+ * `FfmpegVstatV2`: Parse ffmpeg vstat v2 information
 
 ### Subcommands
 
-| Subcommand | Description                                                   | Arguments                                                           |
-|------------|---------------------------------------------------------------|---------------------------------------------------------------------|
-| `fifo_out` | Output to a FIFO file                                         | `fifo_output` (positional) - The FIFO output file path              |
-| `http_out` | Output to an HTTP endpoint (*not support HTTPS*) as JSON post | `uri_endpoint` (positional) - URI of the HTTP endpoint              |
-|            |                                                               | `--format` Format for sending POST data [Json, Avro, Bson, MsgPack] |
+| Subcommand | Description                                                   | Arguments                                               |
+|------------|---------------------------------------------------------------|---------------------------------------------------------|
+| `fifo_out` | Output to a FIFO file (this always clone the input line)      | `fifo_output` (positional) - The FIFO output file path  |
+| `http_out` | Output to an HTTP endpoint (*not support HTTPS*) as JSON post | `uri_endpoint` (positional) - URI of the HTTP endpoint  |
+|            |                                                               | `--format` Format for sending POST data [Json, MsgPack] |
 
 #### MsgPack
 For `MessagePack` the definition of the struct (that you must to use to read the binary) is:
@@ -77,7 +80,7 @@ struct FfmpegInfo {
     Suppose you have an FFmpeg vstats log being written to a FIFO file at `/tmp/ffmpeg_fifo`, and you are using vstats version 1 log lines. You could run the utility as follows:
 
     ```sh
-    ./target/release/ffmpeg_vstat_parser --fifo /tmp/ffmpeg_fifo --vstat-version 1 fifo_out /tmp/output_fifo
+    ./target/release/ffmpeg_vstat_parser --fifo /tmp/ffmpeg_fifo --parser FfmpegVstatV1 fifo_out /tmp/output_fifo
     ```
 
 2. **Using a Different vstats Version:**
@@ -85,7 +88,7 @@ struct FfmpegInfo {
     If the vstats version of your log lines is 2, you can specify that accordingly:
 
     ```sh
-    ./target/release/ffmpeg_vstat_parser --fifo /tmp/ffmpeg_fifo --vstat-version 2 fifo_out /tmp/output_fifo
+    ./target/release/ffmpeg_vstat_parser --fifo /tmp/ffmpeg_fifo --parser FfmpegVstatV2 fifo_out /tmp/output_fifo
     ```
 
 3. **Output to an HTTP Endpoint:**
@@ -93,7 +96,7 @@ struct FfmpegInfo {
     To send the parsed vstats logs to an HTTP endpoint in JSON format:
 
     ```sh
-    ./target/release/ffmpeg_vstat_parser --fifo /tmp/ffmpeg_fifo --vstat-version 1 http_out http://example.com/endpoint --format Json
+    ./target/release/ffmpeg_vstat_parser --fifo /tmp/ffmpeg_fifo --parser FfmpegVstatV1 http_out http://example.com/endpoint --format Json
     ```
 
 ## Contributing

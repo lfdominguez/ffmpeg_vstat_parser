@@ -9,9 +9,9 @@ pub static APP_ARGS: Lazy<Args> = Lazy::new(argh::from_env);
 pub(crate) struct Args {
     #[argh(option, short = 'f', long = "fifo", description = "input file fifo to read from")]
     pub fifo_file_in: String,
-    
-    #[argh(option, long = "vstat-version", description = "version of vstat log lines")]
-    pub vstat_version: i8,
+
+    #[argh(option, long = "parser", description = "input log line parser mode")]
+    pub parser_mode: ParserMode,
 
     #[argh(subcommand)]
     pub command: OutputType
@@ -44,7 +44,12 @@ pub(crate) struct OTHttpPost {
 #[derive(EnumString, Clone)]
 pub(crate) enum HttpFormat {
     Json,
-    Bson,
-    Avro,
     MsgPack
+}
+
+#[derive(EnumString, Clone, Debug)]
+pub(crate) enum ParserMode {
+    Raw,
+    FfmpegVstatV1,
+    FfmpegVstatV2
 }
