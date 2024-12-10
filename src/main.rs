@@ -1,58 +1,51 @@
+use std::io::Read;
+use std::sync::mpsc;
+use ipipe::OnCleanup;
 use log::{debug, info, trace, warn};
 use crate::args::{OutputType, ParserMode, APP_ARGS};
-use tokio::net::unix::pipe;
-use tokio::sync::mpsc;
-use tokio::io::{AsyncReadExt};
+use crate::modes::ProcessLog;
 use crate::parser::{LineInfo, ParseInfo};
 
 mod args;
 mod modes;
 mod parser;
+pub mod regexes;
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     info!("Reading from pipe file '{}' using mode '{:?}'", APP_ARGS.fifo_file_in, APP_ARGS.parser_mode);
 
-    let rx_test = pipe::OpenOptions::new()
-        .read_write(true)
-        .open_receiver(APP_ARGS.fifo_file_in.clone());
+    let rx_test = ipipe::Pipe::open(std::path::Path::new(&APP_ARGS.fifo_file_in), OnCleanup::NoDelete);
 
     if let Ok(mut rx) = rx_test {
         debug!("Started read process");
 
-        let (channel_tx, mut channel_rx) = mpsc::channel::<Vec<u8>>(1);
+        let (channel_tx, channel_rx) = mpsc::sync_channel::<Vec<u8>>(1);
 
-        tokio::spawn(async move {
+        let _ = std::thread::spawn(move || {
+            debug!("Spawn read from fifo tokio thread");
+
+            loop {
+                let mut msg = vec![0; 2048];
+
+                if let Ok(readed) = rx.read(&mut msg) {
+                    if readed > 0 {
+                        let msg_readed_vec = msg[..readed].to_vec();
+                        let _ = channel_tx.try_send(msg_readed_vec);
+                    }
+                }
+            }
+        });
+
+        std::thread::spawn(move || {
             debug!("Spawn write from fifo tokio thread");
-
-            let mut log_processor: Box<dyn modes::ProcessLog> = match &APP_ARGS.command {
-                OutputType::FifoOut(fifo_out_args) => {
-                    let processor_test = modes::fifo_out::FifoOut::new(fifo_out_args.fifo_output.clone());
-                    
-                    if let Ok(processor) = processor_test {
-                        Box::new(processor)
-                    } else {
-                        panic!("Error creating processor: {}", processor_test.err().unwrap())
-                    }
-                }
-                OutputType::HttpPost(http_args) => {
-                    let processor_test = modes::http_out::HttpOut::new(http_args.uri_endpoint.clone(), http_args.data_format.clone());
-
-                    if let Ok(processor) = processor_test {
-                        Box::new(processor)
-                    } else {
-                        panic!("Error creating processor: {}", processor_test.err().unwrap())
-                    }
-                }
-            };
             
             let mut incomplete_line = String::new();
 
             loop {
-                match channel_rx.recv().await {
-                    Some(msg) => {
+                match channel_rx.recv() {
+                    Ok(msg) => {
                         let msg_string_test = String::from_utf8(msg);
 
                         if let Ok(msg_string) = msg_string_test {
@@ -64,7 +57,7 @@ async fn main() -> anyhow::Result<()> {
                                     let line = format!("{}{}", incomplete_line, String::from_utf8_lossy(&msg_bytes[start..i]));
 
                                     let parser_info_result = match APP_ARGS.parser_mode {
-                                        ParserMode::Raw => Ok(LineInfo {
+                                        ParserMode::Raw => Some(LineInfo {
                                             raw_line: line,
                                             parse_info: None
                                         }),
@@ -73,22 +66,77 @@ async fn main() -> anyhow::Result<()> {
                                             let ffmpeg_info_result = parser::parse_ffmpeg_vstat(&line);
                                             
                                             if let Ok(ffmpeg_info) = ffmpeg_info_result {
-                                                Ok(LineInfo {
+                                                Some(LineInfo {
                                                     raw_line: line,
                                                     parse_info: Some(ParseInfo::Ffmpeg(Box::new(ffmpeg_info)))
                                                 })
                                             } else {
-                                                Err(format!("Fail parsing ffmpeg vstat line: {}", ffmpeg_info_result.err().unwrap()))
+                                                debug!("Fail parsing ffmpeg vstat line: {}", ffmpeg_info_result.err().unwrap());
+                                                
+                                                None
+                                            }
+                                        }
+                                        
+                                        ParserMode::GigaTools => {
+                                            if let Some(gigatool_info) = parser::parse_gigatools(&line) {
+                                                Some(LineInfo {
+                                                    raw_line: line,
+                                                    parse_info: Some(ParseInfo::GigaTools(Box::new(gigatool_info))),
+                                                })
+                                            } else {
+                                                None
+                                            }
+                                        }
+                                        
+                                        ParserMode::TspContinuity => {
+                                            if let Some(tsp_info) = parser::parse_tsp_continuity(&line) {
+                                                Some(LineInfo {
+                                                    raw_line: line,
+                                                    parse_info: Some(ParseInfo::TspContinuity(Box::new(tsp_info))),
+                                                })
+                                            } else {
+                                                None
+                                            }
+                                        }
+
+                                        ParserMode::TspHistory => {
+                                            if let Some(tsp_info) = parser::parse_tsp_history(&line) {
+                                                Some(LineInfo {
+                                                    raw_line: line,
+                                                    parse_info: Some(ParseInfo::TspHistory(Box::new(tsp_info))),
+                                                })
+                                            } else {
+                                                None
                                             }
                                         }
                                     };
 
-                                    if let Ok(parser_info) = parser_info_result {
-                                        if let Err(e) = log_processor.process_log(parser_info).await {
-                                            warn!("Error processing line: {}", e.to_string())
-                                        }
-                                    } else {
-                                        debug!("{}", parser_info_result.err().unwrap().to_string())
+                                    if let Some(parser_info) = parser_info_result {
+                                        match &APP_ARGS.command {
+                                            OutputType::FifoOut(fifo_out_args) => {
+                                                let processor_test = modes::fifo_out::FifoOut::new(fifo_out_args.fifo_output.clone());
+
+                                                if let Ok(mut processor) = processor_test {
+                                                    if let Err(e) = processor.process_log(parser_info) {
+                                                        warn!("Error processing line: {}", e.to_string())
+                                                    }
+                                                } else {
+                                                    panic!("Error creating processor: {}", processor_test.err().unwrap())
+                                                }
+                                            }
+                                            OutputType::HttpPost(http_args) => {
+                                                let processor_test = modes::http_out::HttpOut::new(http_args.uri_endpoint.clone(), http_args.data_format.clone());
+
+                                                if let Ok(mut processor) = processor_test {
+                                                    if let Err(e) = processor.process_log(parser_info) {
+                                                        warn!("Error processing line: {}", e.to_string())
+                                                    }
+                                                } else {
+                                                    panic!("Error creating processor: {}", processor_test.err().unwrap())
+                                                }
+                                            }
+                                        };
+
                                     }
                                     
                                     incomplete_line.clear();
@@ -105,36 +153,22 @@ async fn main() -> anyhow::Result<()> {
                             warn!("Ignoring log line: '{:?}'", msg_string_test.err());
                         }
                     },
-                    None => trace!("Dropping read package"),
-                }
-            }
-        });
-
-        let read_task = tokio::spawn(async move {
-            debug!("Spawn read from fifo tokio thread");
-
-            loop {
-                let mut msg = vec![0; 2048];
-
-                if let Ok(readed) = rx.read(&mut msg).await {
-                    if readed > 0 {
-                        let msg_readed_vec = msg[..readed].to_vec();
-                        let _ = channel_tx.try_send(msg_readed_vec);
-                    }
+                    Err(err) => trace!("Error on FIFO channel: {err}"),
                 }
             }
         });
 
         loop {
-            if let Ok(exists) = tokio::fs::try_exists(APP_ARGS.fifo_file_in.clone()).await {
+            if let Ok(exists) = std::fs::exists(APP_ARGS.fifo_file_in.clone()) {
                 if !exists {
-                    read_task.abort();
+                    warn!("FIFO IN not exists: removed?");
+                    // read_task.;
                 }
             }
 
             debug!("Wait for 1s to check again for {} exists.", APP_ARGS.fifo_file_in);
 
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            std::thread::sleep(std::time::Duration::from_secs(1));
         }
     } else {
         anyhow::bail!("Error opening read of tunnel file")
