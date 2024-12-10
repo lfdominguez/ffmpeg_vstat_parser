@@ -1,5 +1,4 @@
-use async_trait::async_trait;
-use reqwest::{Client};
+use reqwest::blocking::{Client};
 use crate::args::{HttpFormat};
 use crate::parser::LineInfo;
 
@@ -17,9 +16,8 @@ impl HttpOut {
     }
 }
 
-#[async_trait]
 impl crate::modes::ProcessLog for HttpOut {
-    async fn process_log(&mut self, line_info: LineInfo) -> anyhow::Result<()> {
+    fn process_log(&mut self, line_info: LineInfo) -> anyhow::Result<()> {
         let request_builder = Client::new().post(self.http_endpoint.clone());
 
         let request_builder = match self.http_format {
@@ -39,7 +37,7 @@ impl crate::modes::ProcessLog for HttpOut {
             }
         };
 
-        request_builder.send().await?;
+        request_builder.send()?;
 
         Ok(())
     }

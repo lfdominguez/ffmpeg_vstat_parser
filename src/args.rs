@@ -51,5 +51,8 @@ pub(crate) enum HttpFormat {
 pub(crate) enum ParserMode {
     Raw,
     FfmpegVstatV1,
-    FfmpegVstatV2
+    FfmpegVstatV2,
+    GigaTools,
+    TspContinuity,
+    TspHistory
 }
