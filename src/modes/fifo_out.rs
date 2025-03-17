@@ -2,6 +2,7 @@ use std::io::Write;
 use ipipe::OnCleanup;
 use log::trace;
 use crate::parser::LineInfo;
+use anyhow::Context;
 
 pub struct FifoOut {
     fifo_sender: ipipe::Pipe
@@ -9,7 +10,7 @@ pub struct FifoOut {
 
 impl FifoOut {
     pub fn new(fifo_output_file: String) -> anyhow::Result<Self> {
-        let tx_test = ipipe::Pipe::open(std::path::Path::new(&fifo_output_file), OnCleanup::NoDelete).expect("Can't open FIFO out");
+        let tx_test = ipipe::Pipe::open(std::path::Path::new(&fifo_output_file), OnCleanup::NoDelete).context("Can't open FIFO out")?;
         
         Ok(Self {
             fifo_sender: tx_test

@@ -53,7 +53,7 @@ impl crate::modes::ProcessLog for HttpOut {
             .map(|_| {
                 self.last_fail_milliseconds = None;
             })
-            .inspect_err(|err| {
+            .inspect_err(|_| {
                 self.last_fail_milliseconds = Some(chrono::Utc::now().timestamp_millis());
             })?;
 
