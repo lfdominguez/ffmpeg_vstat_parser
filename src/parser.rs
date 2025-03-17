@@ -78,7 +78,7 @@ pub(crate) fn parse_ffmpeg_vstat(log_line: &String) -> anyhow::Result<FfmpegInfo
         let avg_bitrate_kbps = parse_generic_field("avg_br", &vstats_regex_groups)?;
 
         Ok(FfmpegInfo {
-            index: format!("{}:{}", out_file_index, out_stream_index),
+            index: format!("{out_file_index}:{out_stream_index}"),
             frame_number,
             frame_quality,
             packet_size_bytes,
@@ -104,7 +104,7 @@ fn parse_string_field(field_name: &str, regex_capture: &Captures) -> anyhow::Res
 pub(crate) fn parse_gigatools(log_line: &String) -> Option<GigaToolsInfo> {
     trace!("Processing line: {log_line}");
 
-    let split: Vec<String> = log_line.split(' ').map(|elem| elem.to_string()).collect();
+    let split: Vec<String> = log_line.split(' ').map(std::string::ToString::to_string).collect();
 
     if log_line.contains("STAT ALERT-count") {
         log::trace!("Gigatool ALERT log: {log_line}");

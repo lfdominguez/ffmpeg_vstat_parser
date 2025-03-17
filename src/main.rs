@@ -107,7 +107,7 @@ fn main() -> anyhow::Result<()> {
 
                                                 if let Ok(mut processor) = processor_test {
                                                     if let Err(e) = processor.process_log(parser_info) {
-                                                        warn!("Error processing line: {}", e.to_string())
+                                                        warn!("Error processing line: {}", e.to_string());
                                                     }
                                                 } else {
                                                     panic!("Error creating processor: {}", processor_test.err().unwrap())
@@ -118,7 +118,7 @@ fn main() -> anyhow::Result<()> {
 
                                                 if let Ok(mut processor) = processor_test {
                                                     if let Err(e) = processor.process_log(parser_info) {
-                                                        warn!("Error processing line: {}", e.to_string())
+                                                        warn!("Error processing line: {}", e.to_string());
                                                     }
                                                 } else {
                                                     panic!("Error creating processor: {}", processor_test.err().unwrap())
