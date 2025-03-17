@@ -114,14 +114,10 @@ fn main() -> anyhow::Result<()> {
                                                 }
                                             }
                                             OutputType::HttpPost(http_args) => {
-                                                let processor_test = modes::http_out::HttpOut::new(http_args.uri_endpoint.clone(), http_args.data_format.clone());
+                                                let mut processor = modes::http_out::HttpOut::new(http_args.uri_endpoint.clone(), http_args.data_format.clone());
 
-                                                if let Ok(mut processor) = processor_test {
-                                                    if let Err(e) = processor.process_log(parser_info) {
-                                                        warn!("Error processing line: {}", e.to_string());
-                                                    }
-                                                } else {
-                                                    panic!("Error creating processor: {}", processor_test.err().unwrap())
+                                                if let Err(e) = processor.process_log(parser_info) {
+                                                    warn!("Error processing line: {}", e.to_string());
                                                 }
                                             }
                                         };

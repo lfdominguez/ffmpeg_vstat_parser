@@ -9,13 +9,12 @@ pub struct HttpOut {
 }
 
 impl HttpOut {
-    pub fn new(http_endpoint: String, http_format: HttpFormat) -> anyhow::Result<Self> {
-
-        Ok(Self {
+    pub fn new(http_endpoint: String, http_format: HttpFormat) -> Self {
+        Self {
             http_endpoint,
             http_format,
             last_fail_milliseconds: None
-        })
+        }
     }
 }
 
