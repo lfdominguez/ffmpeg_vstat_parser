@@ -103,7 +103,7 @@ fn main() -> anyhow::Result<()> {
                                     if let Some(parser_info) = parser_info_result {
                                         match &APP_ARGS.command {
                                             OutputType::FifoOut(fifo_out_args) => {
-                                                let processor_test = modes::fifo_out::FifoOut::new(fifo_out_args.fifo_output.clone());
+                                                let processor_test = modes::fifo_out::FifoOut::new(&fifo_out_args.fifo_output);
 
                                                 if let Ok(mut processor) = processor_test {
                                                     if let Err(e) = processor.process_log(parser_info) {

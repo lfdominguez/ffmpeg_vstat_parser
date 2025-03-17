@@ -9,8 +9,8 @@ pub struct FifoOut {
 }
 
 impl FifoOut {
-    pub fn new(fifo_output_file: String) -> anyhow::Result<Self> {
-        let tx_test = ipipe::Pipe::open(std::path::Path::new(&fifo_output_file), OnCleanup::NoDelete).context("Can't open FIFO out")?;
+    pub fn new(fifo_output_file: &str) -> anyhow::Result<Self> {
+        let tx_test = ipipe::Pipe::open(std::path::Path::new(fifo_output_file), OnCleanup::NoDelete).context("Can't open FIFO out")?;
         
         Ok(Self {
             fifo_sender: tx_test
