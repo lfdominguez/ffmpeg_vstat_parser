@@ -6,7 +6,6 @@ use anyhow::anyhow;
 use log::trace;
 use regex::Captures;
 use serde::Serialize;
-use crate::args::{ParserMode, APP_ARGS};
 use crate::regexes::{FFMPEG_VSTAT_REGEX, TSP_RE_CONTINUITY, TSP_RE_PID_MODE, TSP_RE_TDT};
 
 #[derive(Serialize)]
@@ -27,8 +26,7 @@ pub(crate) enum ParseInfo {
 
 #[derive(Serialize)]
 pub(crate) struct FfmpegInfo {
-    pub out_file_index: Option<i64>,
-    pub out_stream_index: Option<i64>,
+    pub index: String,
     pub frame_number: i64,
     pub frame_quality: f64,
     pub packet_size_bytes: i64,
@@ -68,18 +66,8 @@ pub(crate) fn parse_ffmpeg_vstat(log_line: &String) -> anyhow::Result<FfmpegInfo
     trace!("Processing line: {log_line}");
 
     if let Some(vstats_regex_groups) = FFMPEG_VSTAT_REGEX.captures(log_line) {
-        let out_file_index = match APP_ARGS.parser_mode {
-            ParserMode::FfmpegVstatV1 => None,
-            ParserMode::FfmpegVstatV2 => Some(parse_generic_field("out", &vstats_regex_groups)?),
-            _ => anyhow::bail!("Incorrect parser mode for ffmpeg vstat")
-        };
-
-        let out_stream_index = match APP_ARGS.parser_mode {
-            ParserMode::FfmpegVstatV1 => None,
-            ParserMode::FfmpegVstatV2 => Some(parse_generic_field("st", &vstats_regex_groups)?),
-            _ => anyhow::bail!("Incorrect parser mode for ffmpeg vstat")
-        };
-
+        let out_file_index: String = parse_generic_field("out", &vstats_regex_groups)?;
+        let out_stream_index: String = parse_generic_field("st", &vstats_regex_groups)?;
         let frame_number = parse_generic_field("frame", &vstats_regex_groups)?;
         let frame_quality = parse_generic_field("q", &vstats_regex_groups)?;
         let packet_size_bytes = parse_generic_field("f_size", &vstats_regex_groups)?;
@@ -90,8 +78,7 @@ pub(crate) fn parse_ffmpeg_vstat(log_line: &String) -> anyhow::Result<FfmpegInfo
         let avg_bitrate_kbps = parse_generic_field("avg_br", &vstats_regex_groups)?;
 
         Ok(FfmpegInfo {
-            out_file_index,
-            out_stream_index,
+            index: format!("{}:{}", out_file_index, out_stream_index),
             frame_number,
             frame_quality,
             packet_size_bytes,
@@ -140,7 +127,7 @@ pub(crate) fn parse_gigatools(log_line: &String) -> Option<GigaToolsInfo> {
     }
 }
 
-pub(crate) fn parse_tsp_continuity(log_line: &String) -> Option<TspContinuity> {
+pub(crate) fn parse_tsp_continuity(log_line: &str) -> Option<TspContinuity> {
     if let Some(re_continuity_capture) = TSP_RE_CONTINUITY.captures(log_line) {
         if let (Some(program_pid), Some(missing_count)) =
             (re_continuity_capture.name("program_pid"), re_continuity_capture.name("missing_count"))
@@ -160,7 +147,7 @@ pub(crate) fn parse_tsp_continuity(log_line: &String) -> Option<TspContinuity> {
     }
 }
 
-pub(crate) fn parse_tsp_history(log_line: &String) -> Option<TspHistory> {
+pub(crate) fn parse_tsp_history(log_line: &str) -> Option<TspHistory> {
     static LATEST_TDT_TIMESTAMP: AtomicI64 = AtomicI64::new(0);
 
     if let Some(re_history_msg) = TSP_RE_CONTINUITY.captures(log_line) {

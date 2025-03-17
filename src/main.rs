@@ -11,6 +11,7 @@ mod modes;
 mod parser;
 pub mod regexes;
 
+
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 
@@ -36,7 +37,7 @@ fn main() -> anyhow::Result<()> {
                     }
                 }
             }
-        });
+        });        
 
         std::thread::spawn(move || {
             debug!("Spawn write from fifo tokio thread");
@@ -62,9 +63,9 @@ fn main() -> anyhow::Result<()> {
                                             parse_info: None
                                         }),
 
-                                        ParserMode::FfmpegVstatV1 | ParserMode::FfmpegVstatV2 => {
+                                        ParserMode::FfmpegVstatV2 => {
                                             let ffmpeg_info_result = parser::parse_ffmpeg_vstat(&line);
-                                            
+
                                             if let Ok(ffmpeg_info) = ffmpeg_info_result {
                                                 Some(LineInfo {
                                                     raw_line: line,
@@ -72,42 +73,30 @@ fn main() -> anyhow::Result<()> {
                                                 })
                                             } else {
                                                 debug!("Fail parsing ffmpeg vstat line: {}", ffmpeg_info_result.err().unwrap());
-                                                
-                                                None
-                                            }
-                                        }
-                                        
-                                        ParserMode::GigaTools => {
-                                            if let Some(gigatool_info) = parser::parse_gigatools(&line) {
-                                                Some(LineInfo {
-                                                    raw_line: line,
-                                                    parse_info: Some(ParseInfo::GigaTools(Box::new(gigatool_info))),
-                                                })
-                                            } else {
-                                                None
-                                            }
-                                        }
-                                        
-                                        ParserMode::TspContinuity => {
-                                            if let Some(tsp_info) = parser::parse_tsp_continuity(&line) {
-                                                Some(LineInfo {
-                                                    raw_line: line,
-                                                    parse_info: Some(ParseInfo::TspContinuity(Box::new(tsp_info))),
-                                                })
-                                            } else {
+
                                                 None
                                             }
                                         }
 
+                                        ParserMode::GigaTools => {
+                                            parser::parse_gigatools(&line).map(|gigatool_info| LineInfo {
+                                                raw_line: line,
+                                                parse_info: Some(ParseInfo::GigaTools(Box::new(gigatool_info))),
+                                            })
+                                        }
+                                        
+                                        ParserMode::TspContinuity => {
+                                            parser::parse_tsp_continuity(&line).map(|tsp_info| LineInfo {
+                                                raw_line: line,
+                                                parse_info: Some(ParseInfo::TspContinuity(Box::new(tsp_info))),
+                                            })
+                                        }
+
                                         ParserMode::TspHistory => {
-                                            if let Some(tsp_info) = parser::parse_tsp_history(&line) {
-                                                Some(LineInfo {
-                                                    raw_line: line,
-                                                    parse_info: Some(ParseInfo::TspHistory(Box::new(tsp_info))),
-                                                })
-                                            } else {
-                                                None
-                                            }
+                                            parser::parse_tsp_history(&line).map(|tsp_info| LineInfo {
+                                                raw_line: line,
+                                                parse_info: Some(ParseInfo::TspHistory(Box::new(tsp_info))),
+                                            })
                                         }
                                     };
 

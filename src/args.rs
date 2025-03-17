@@ -50,7 +50,6 @@ pub(crate) enum HttpFormat {
 #[derive(EnumString, Clone, Debug)]
 pub(crate) enum ParserMode {
     Raw,
-    FfmpegVstatV1,
     FfmpegVstatV2,
     GigaTools,
     TspContinuity,
