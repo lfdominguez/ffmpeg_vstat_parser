@@ -10,6 +10,9 @@ pub(crate) struct Args {
     #[argh(option, short = 'f', long = "fifo", description = "input file fifo to read from")]
     pub fifo_file_in: String,
 
+    #[argh(option, long = "wait-msec", description = "msec between recurrent info sent")]
+    pub wait_msec: i64,
+
     #[argh(option, long = "parser", description = "input log line parser mode")]
     pub parser_mode: ParserMode,
 
