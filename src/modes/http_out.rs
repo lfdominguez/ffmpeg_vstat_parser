@@ -5,13 +5,24 @@ use reqwest::blocking::Client;
 pub struct HttpOut {
     http_endpoint: String,
     http_format: HttpFormat,
+    client: Client,
 }
 
 impl HttpOut {
     pub fn new(http_endpoint: String, http_format: HttpFormat) -> Self {
+        // Build a single client with HTTP keep-alive enabled so the underlying
+        // TCP connection is reused across requests (avoids open/close per send).
+        let client = Client::builder()
+            .pool_idle_timeout(std::time::Duration::from_secs(90))
+            .pool_max_idle_per_host(1)
+            .tcp_keepalive(std::time::Duration::from_secs(60))
+            .build()
+            .expect("Failed to build reqwest HTTP client");
+
         Self {
             http_endpoint,
             http_format,
+            client,
         }
     }
 }
@@ -20,7 +31,7 @@ impl crate::modes::ProcessLog for HttpOut {
     fn process_log(&mut self, line_info: LineInfo) -> anyhow::Result<()> {
         log::debug!("Processing http out");
 
-        let request_builder = Client::new().post(self.http_endpoint.clone());
+        let request_builder = self.client.post(self.http_endpoint.clone());
 
         let request_builder = match self.http_format {
             HttpFormat::Json => {
